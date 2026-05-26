@@ -1,0 +1,4 @@
+{
+  "build_command": "npm install && npm install -g @marp-team/marp-cli",
+  "start_command": "node server.js"
+}
