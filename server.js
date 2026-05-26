@@ -11,37 +11,38 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
  
-// POST /convert  body: { markdown: "...", type: "pptx" | "pdf" | "html" }
+// POST /convert  body: { markdown: "...", type: "html" }
+// PPTX requires Chromium - use html output and convert locally if needed
 app.post('/convert', (req, res) => {
-  const { markdown, type = 'pptx' } = req.body;
+  const { markdown, type = 'html' } = req.body;
  
   if (!markdown) {
     return res.status(400).json({ error: 'No markdown provided' });
   }
  
+  // Force html if pptx requested (no Chromium available)
+  const outputType = (type === 'pptx' || type === 'pdf') ? 'html' : type;
+ 
   const ts = Date.now();
   const tempMd  = path.join(os.tmpdir(), `marp-${ts}.md`);
-  const tempOut = path.join(os.tmpdir(), `marp-${ts}.${type}`);
+  const tempOut = path.join(os.tmpdir(), `marp-${ts}.${outputType}`);
  
   try {
     fs.writeFileSync(tempMd, markdown);
     execSync(
-      `marp ${tempMd} -o ${tempOut} --allow-local-files`,
-      {
-        stdio: 'pipe',
-        env: { ...process.env, CHROME_PATH: '/usr/bin/chromium-browser' }
-      }
+      `marp ${tempMd} -o ${tempOut}`,
+      { stdio: 'pipe' }
     );
  
     const fileBuffer = fs.readFileSync(tempOut);
     const mimeTypes = {
+      html: 'text/html',
       pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      pdf:  'application/pdf',
-      html: 'text/html'
+      pdf:  'application/pdf'
     };
  
-    res.setHeader('Content-Type', mimeTypes[type] || 'application/octet-stream');
-    res.setHeader('Content-Disposition', `attachment; filename="presentation.${type}"`);
+    res.setHeader('Content-Type', mimeTypes[outputType] || 'text/html');
+    res.setHeader('Content-Disposition', `attachment; filename="presentation.${outputType}"`);
     res.send(fileBuffer);
  
   } catch (err) {
